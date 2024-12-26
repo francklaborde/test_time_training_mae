@@ -100,7 +100,9 @@ def get_args_parser():
     parser.add_argument('--dist_on_itp', action='store_true')
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
-
+    parser.add_argument('--regularize', action='store_true', help='add a L2 regularization to the optimizer', default=False)
+    parser.add_argument('--online', action='store_true', help='online test-time training', default=False)
+    parser.add_argument('--l2_lambda', type=float, default=0.01, help='L2 regularization lambda')
     return parser
 
 def load_combined_model(args, num_classes: int = 1000):

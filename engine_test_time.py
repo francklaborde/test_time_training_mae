@@ -111,6 +111,11 @@ def train_on_test(base_model: torch.nn.Module,
     if log_writer is not None:
         print('log_dir: {}'.format(log_writer.log_dir))
     dataset_len = len(dataset_val)
+    if args.online:
+        print('Online TTT ' + 'with L2 regularization.' if args.regularize else 'without L2 regularization.')
+        if args.regularize:
+            print(f'L2 lambda: {args.l2_lambda}')
+            initial_param = {name: p.clone() for name, p in model.named_parameters()}   
     for data_iter_step in range(iter_start, dataset_len):
         val_data = next(val_loader)
         (test_samples, test_label) = val_data
@@ -127,6 +132,13 @@ def train_on_test(base_model: torch.nn.Module,
             samples = samples.to(device, non_blocking=True)[0] # index [0] becuase the data is batched to have size 1.
             loss_dict, _, _, _ = model(samples, None, mask_ratio=mask_ratio)
             loss = torch.stack([loss_dict[l] for l in loss_dict]).sum()
+            if args.regularize:
+                # Add L2 regularization to the loss
+                l2_reg = 0
+                for name, p in model.named_parameters():
+                    if name in initial_param:
+                        l2_reg += torch.norm(p - initial_param[name], p=2)
+                loss += args.l2_lambda * l2_reg
             loss_value = loss.item()
             loss /= accum_iter
             if not math.isfinite(loss_value):
@@ -170,7 +182,8 @@ def train_on_test(base_model: torch.nn.Module,
                 np.save(f, np.array(all_losses))
             all_results = [list() for i in range(args.steps_per_example)]
             all_losses = [list() for i in range(args.steps_per_example)]
-        model, optimizer, loss_scaler = _reinitialize_model(base_model, base_optimizer, base_scalar, clone_model, args, device)
+        if not args.online:
+            model, optimizer, loss_scaler = _reinitialize_model(base_model, base_optimizer, base_scalar, clone_model, args, device)
     save_accuracy_results(args)
     # gather the stats from all processes
     try:
