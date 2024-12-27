@@ -112,10 +112,14 @@ def train_on_test(base_model: torch.nn.Module,
         print('log_dir: {}'.format(log_writer.log_dir))
     dataset_len = len(dataset_val)
     if args.online:
-        print('Online TTT ' + 'with L2 regularization.' if args.regularize else 'without L2 regularization.')
+        print('Online TTT ')
         if args.regularize:
-            print(f'L2 lambda: {args.l2_lambda}')
-            initial_param = {name: p.clone() for name, p in model.named_parameters()}   
+            print(f'Using L2 regularization with lambda = {args.l2_lambda}')
+            initial_param = {name: p.clone() for name, p in model.named_parameters()}
+        else:
+            print('No regularization')
+    else:
+        print('Offline TTT')
     for data_iter_step in range(iter_start, dataset_len):
         val_data = next(val_loader)
         (test_samples, test_label) = val_data
@@ -132,7 +136,7 @@ def train_on_test(base_model: torch.nn.Module,
             samples = samples.to(device, non_blocking=True)[0] # index [0] becuase the data is batched to have size 1.
             loss_dict, _, _, _ = model(samples, None, mask_ratio=mask_ratio)
             loss = torch.stack([loss_dict[l] for l in loss_dict]).sum()
-            if args.regularize:
+            if args.regularize and args.online:
                 # Add L2 regularization to the loss
                 l2_reg = 0
                 for name, p in model.named_parameters():
